@@ -1,13 +1,24 @@
 {
   "dependencies": {
-    "fastify": "^4.28.1"
+    "bcryptjs": "^2.4.3",
+    "dotenv": "^16.4.5",
+    "fastify": "^4.28.1",
+    "fastify-jwt": "^4.2.0"
   },
   "devDependencies": {
-    "@types/node": "^22.5.4",
+    "@types/node": "^22.5.5",
+    "eslint": "^9.10.0",
+    "eslint-config-prettier": "^9.1.0",
+    "eslint-plugin-prettier": "^5.2.1",
+    "prettier": "^3.3.3",
+    "ts-node": "^10.9.2",
     "typescript": "^5.6.2"
   },
   "scripts": {
-    "build": "tsc -p tsconfig.json",
-    "start": "node index.js"
+    "dev": "ts-node src/server.ts",
+    "start": "node dist/server.js",
+    "lint": "eslint 'src/**/*.{js,ts}'",
+    "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
+    "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
   }
 }
