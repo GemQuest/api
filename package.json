@@ -1,12 +1,22 @@
 {
   "dependencies": {
+    "@fastify/formbody": "^8.0.0",
+    "@fastify/jwt": "^9.0.0",
+    "@prisma/client": "^5.19.1",
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
-    "fastify": "^4.28.1",
-    "fastify-jwt": "^4.2.0"
+    "fastify": "^5.0.0",
+    "fastify-jwt": "^4.2.0",
+    "fastify-plugin": "^5.0.0",
+    "prisma": "^5.19.1"
   },
   "devDependencies": {
+    "@types/bcryptjs": "^2.4.6",
+    "@types/fastify-jwt": "^0.8.1",
+    "@types/jsonwebtoken": "^9.0.7",
     "@types/node": "^22.5.5",
+    "dotenv-cli": "^7.4.2",
+    "dotenv-flow": "^4.1.0",
     "eslint": "^9.10.0",
     "eslint-config-prettier": "^9.1.0",
     "eslint-plugin-prettier": "^5.2.1",
@@ -15,10 +25,15 @@
     "typescript": "^5.6.2"
   },
   "scripts": {
-    "dev": "ts-node src/server.ts",
-    "start": "node dist/server.js",
+    "build": "tsc",
+    "dev": "NODE_ENV=development ts-node src/server.ts",
+    "format": "prettier --write 'src/**/*.{js,ts,json,md}'",
+    "generate": "dotenv -e .env.development -- npx prisma generate",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
-    "format": "prettier --write 'src/**/*.{js,ts,json,md}'"
+    "migrate:dev": "dotenv -e .env.development -- npx prisma migrate dev",
+    "migrate:prod": "dotenv -e .env.production -- npx prisma migrate deploy",
+    "start": "NODE_ENV=production node dist/server.js",
+    "type-check": "tsc --noEmit"
   }
 }

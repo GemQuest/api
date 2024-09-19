@@ -1,0 +1,39 @@
+version: '3.8'
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile
+      args:
+        NODE_ENV: ${NODE_ENV} # Use the correct .env file based on NODE_ENV
+    container_name: gemquest-app
+    restart: always
+    ports:
+      - "3000:3000"
+    environment:
+      NODE_ENV: ${NODE_ENV}
+      DATABASE_URL: ${DATABASE_URL} # Loaded from .env file
+    volumes:
+      - .:/app
+    depends_on:
+      - db
+    networks:
+      - gemquest-network
+
+  db:
+    image: postgres:13
+    container_name: gemquest-db
+    restart: always
+    environment:
+      POSTGRES_USER: postgres
+      POSTGRES_PASSWORD: 4LUqOgI6yUNUlX22DHMb
+      POSTGRES_DB: gemquest
+    ports:
+      - "5432:5432"
+    networks:
+      - gemquest-network
+
+networks:
+  gemquest-network:
+    driver: bridge
