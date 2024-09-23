@@ -1,27 +1,17 @@
-// src/plugins/authPlugin.ts
+// src/plugins/authorize.ts
 
+import { FastifyReply, FastifyRequest } from 'fastify';
 import fp from 'fastify-plugin';
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { PermissionOptions, rolePermissions } from '../config/permission';
-import '@fastify/jwt';
+import 'fastify';
+import '@fastify/jwt'; // Import for module augmentation
 
-export const authPlugin = fp(async (server: FastifyInstance) => {
-  // Authentication decorator
-  server.decorate(
-    'authenticate',
-    async function (request: FastifyRequest, reply: FastifyReply) {
-      try {
-        await request.jwtVerify();
-      } catch (err) {
-        reply.send(err);
-      }
-    },
-  );
-
-  // Authorization decorator
+export default fp(async (server) => {
   server.decorate('authorize', function (options: PermissionOptions) {
     return async function (request: FastifyRequest, reply: FastifyReply) {
       try {
+        await request.jwtVerify();
+
         const userRole = request.user.role;
 
         // Check if the user's role is allowed

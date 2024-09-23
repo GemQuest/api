@@ -1,37 +1,36 @@
-import Fastify from 'fastify';
-import fastifyJwt from '@fastify/jwt';
-import { authRoutes } from './routes/auth';
-import fastifyFormbody from '@fastify/formbody';
-import dotenvFlow from 'dotenv-flow';
-import authPlugin from './plugins/authPlugin';
-import fastify from './@types/fastify';
+// src/server.ts
 
-// Load environment variables
-dotenvFlow.config();
+import Fastify from 'fastify';
+import fastifyFormbody from '@fastify/formbody';
+import { authPlugin } from './plugins/authPlugin';
+import { jwtPlugin } from './plugins/jwtPlugin';
+import { prismaPlugin } from './plugins/prismaPlugin.';
+import { authRoutes } from './routes/authRoutes';
+import { experienceRoutes } from './routes/experienceRoutes';
+import { nftRoutes } from './routes/nftRoutes';
 
 const server = Fastify({ logger: true });
 
-// Register the form-body parser
+// Register plugins
+server.register(fastifyFormbody);
+server.register(jwtPlugin);
+server.register(prismaPlugin);
 server.register(authPlugin);
 
-// Register JWT plugin
-server.register(fastifyJwt, {
-  secret: process.env.JWT_SECRET || 'fallback-secret',
-});
-
-// Register the auth routes
+// Register routes
 server.register(authRoutes, { prefix: '/auth' });
+server.register(experienceRoutes, { prefix: '/experiences' });
+server.register(nftRoutes, { prefix: '/nfts' });
 
-const start = async () => {
+// Start the server
+const startServer = async () => {
   try {
-    server.log.info('JWT Secret: ' + process.env.JWT_SECRET);
     await server.listen({ port: 3000, host: '0.0.0.0' });
-    server.log.info(`Server listening on http://localhost:3000`);
+    server.log.info('Server started');
   } catch (err) {
     server.log.error(err);
     process.exit(1);
   }
 };
 
-// Start the server
-start();
+startServer();

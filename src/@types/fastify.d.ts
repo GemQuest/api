@@ -1,4 +1,5 @@
-import { FastifyRequest, FastifyReply } from 'fastify';
+import 'fastify';
+import { PermissionOptions } from '../config/permissions';
 
 declare module 'fastify' {
   interface FastifyInstance {
@@ -6,5 +7,7 @@ declare module 'fastify' {
       request: FastifyRequest,
       reply: FastifyReply,
     ) => Promise<void>;
+    authorize: (options: PermissionOptions) => any;
+    prisma: import('@prisma/client').PrismaClient;
   }
 }
