@@ -7,55 +7,60 @@ export async function clientRoutes(server: FastifyInstance) {
   server.post(
     '/create',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { name, email, plan } = request.body as {
+      const { name, plan } = request.body as {
         name: string;
-        email: string;
         plan: string;
       };
 
       // Get the owner's ID from the authenticated user
       const ownerId = request.user.userId;
 
-      // Check if the client already exists
+      // Check if a client with the same name already exists
       const existingClient = await server.prisma.client.findUnique({
-        where: { email },
+        where: { name },
       });
 
       if (existingClient) {
-        return reply.status(400).send({ error: 'Client already exists' });
+        return reply
+          .status(400)
+          .send({ error: 'Client with this name already exists' });
       }
 
-      // Create the client
-      const client = await server.prisma.client.create({
-        data: {
-          name,
-          email,
-          plan,
-          owner: {
-            connect: { id: ownerId },
+      try {
+        // Create the client
+        const client = await server.prisma.client.create({
+          data: {
+            name,
+            plan,
+            owner: {
+              connect: { id: ownerId },
+            },
           },
-        },
-      });
+        });
 
-      return reply.status(201).send(client);
-    },
-  );
-
-  // Get Client by Email
-  server.get(
-    '/:email',
-    async (request: FastifyRequest, reply: FastifyReply) => {
-      const { email } = request.params as { email: string };
-
-      const client = await server.prisma.client.findUnique({
-        where: { email },
-      });
-
-      if (!client) {
-        return reply.status(404).send({ error: 'Client not found' });
+        return reply.status(201).send(client);
+      } catch (error) {
+        reply
+          .status(500)
+          .send({ error: 'An error occurred while creating the client' });
       }
-
-      return reply.send(client);
     },
   );
+
+  // Get Client by Name
+  server.get('/:name', async (request: FastifyRequest, reply: FastifyReply) => {
+    const { name } = request.params as { name: string };
+
+    const client = await server.prisma.client.findUnique({
+      where: { name },
+    });
+
+    if (!client) {
+      return reply.status(404).send({ error: 'Client not found' });
+    }
+
+    return reply.send(client);
+  });
+
+  // To be completed
 }

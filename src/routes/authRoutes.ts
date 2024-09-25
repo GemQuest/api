@@ -1,96 +1,100 @@
 // src/routes/authRoutes.ts
 
-import { FastifyInstance, FastifyRequest, FastifyReply } from 'fastify';
+import crypto from 'crypto';
 import bcrypt from 'bcryptjs';
+import { addHours } from '../utils/dateHelpers'; // Import the global helper function
+import prisma from '../utils/prisma';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+/**
+ * @notice Defines routes related to authentication, password setup, and reset
+ * @dev Handles setting passwords with tokens and requesting password resets
+ */
 export async function authRoutes(server: FastifyInstance) {
-  // Register route
+  /**
+   * @notice Sets a new password for a user using a reset token
+   * @dev Validates the reset token and sets the new password, clearing the resetToken and resetTokenExpiry fields
+   * @param request The Fastify request object containing the body with token and newPassword
+   * @param reply The Fastify reply object to send back the response
+   * @return A success message if the password is set, or an error message if the token is invalid or expired
+   */
   server.post(
-    '/register',
+    '/set-password',
     async (request: FastifyRequest, reply: FastifyReply) => {
-      const { username, email, password } = request.body as {
-        username: string;
-        email: string;
-        password: string;
+      const { token, newPassword } = request.body as {
+        token: string;
+        newPassword: string;
       };
 
-      // Check if the user already exists
-      const existingUser = await server.prisma.user.findUnique({
-        where: { username },
-      });
-      if (existingUser) {
-        return reply.status(400).send({ error: 'User already exists' });
-      }
-
-      // Hash the password
-      const hashedPassword = await bcrypt.hash(password, 10);
-
-      // Assign default role
-      let role = await server.prisma.role.findUnique({
-        where: { name: 'End User' },
-      });
-      if (!role) {
-        role = await server.prisma.role.create({ data: { name: 'End User' } });
-      }
-
-      // Create the user
-      await server.prisma.user.create({
-        data: {
-          username,
-          email, // Include the email here
-          password: hashedPassword,
-          role: {
-            connect: { id: role.id },
+      // Find the user with the matching reset token and ensure the token is still valid
+      const user = await prisma.user.findFirst({
+        where: {
+          resetToken: token,
+          resetTokenExpiry: {
+            gte: new Date(), // Token must not be expired
           },
         },
       });
 
-      return reply
-        .status(200)
-        .send({ message: 'User registered successfully' });
+      if (!user) {
+        return reply.status(400).send({ error: 'Invalid or expired token' });
+      }
+
+      // Hash the new password
+      const hashedPassword = await bcrypt.hash(newPassword, 10);
+
+      // Update the user's password and clear the reset token and expiry
+      await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          password: hashedPassword,
+          resetToken: null,
+          resetTokenExpiry: null,
+        },
+      });
+
+      reply.send({ message: 'Password set successfully' });
     },
   );
 
-  // Login route
-  server.post('/login', async (request, reply) => {
-    const { username, password } = request.body as {
-      username: string;
-      password: string;
-    };
+  /**
+   * @notice Requests a password reset by generating a reset token and expiry
+   * @dev Generates a reset token and updates the user with this token and its expiry, sending an email with the token
+   * @param request The Fastify request object containing the body with email
+   * @param reply The Fastify reply object to send back the response
+   * @return A success message indicating the token has been sent, or an error message if the user is not found
+   */
+  server.post(
+    '/request-password-reset',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { email } = request.body as { email: string };
 
-    const user = await server.prisma.user.findUnique({
-      where: { username },
-      include: { role: true },
-    });
-
-    if (!user || !(await bcrypt.compare(password, user.password))) {
-      return reply.status(401).send({ error: 'Invalid username or password' });
-    }
-
-    const token = server.jwt.sign({
-      userId: user.id,
-      username: user.username,
-      role: user.role.name,
-    });
-
-    return reply.status(200).send({ token });
-  });
-
-  // Profile route
-  server.get(
-    '/profile',
-    { preValidation: [server.authenticate] },
-    async (request, reply) => {
-      const user = await server.prisma.user.findUnique({
-        where: { id: request.user.userId },
-        select: { id: true, username: true, createdAt: true },
+      // Find the user by email
+      const user = await prisma.user.findUnique({
+        where: { email },
       });
 
       if (!user) {
         return reply.status(404).send({ error: 'User not found' });
       }
 
-      return reply.status(200).send(user);
+      // Generate a new token and expiry
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenExpiry = addHours(1); // Token expires in 1 hour
+
+      // Update the user with the new reset token and expiry
+      await prisma.user.update({
+        where: { email },
+        data: {
+          resetToken: token,
+          resetTokenExpiry: tokenExpiry,
+        },
+      });
+
+      // TODO: Send an email with the token for resetting password
+      // Example: sendEmail(user.email, `Your password reset token: ${token}`);
+
+      reply.send({ message: 'Password reset token sent' });
     },
   );
 }

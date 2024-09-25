@@ -36,6 +36,7 @@
     "migrate:dev": "dotenv -e .env.development -- npx prisma migrate dev",
     "migrate:prod": "dotenv -e .env.production -- npx prisma migrate deploy",
     "start": "NODE_ENV=production node dist/server.js",
-    "type-check": "tsc --noEmit"
+    "type-check": "tsc --noEmit",
+    "seed": "dotenv -e .env.development -- ts-node prisma/seed.ts"
   }
 }

@@ -8,19 +8,22 @@ generator client {
 }
 
 model User {
-  id            Int            @id @default(autoincrement())
-  username      String         @unique
-  password      String
-  email         String         @unique
-  role          Role           @relation(fields: [roleId], references: [id])
-  roleId        Int
-  experiences   Experience[]   @relation("UserExperiences") // No need for fields or references here
-  rewards       UserReward[]
-  nfts          NFT[]
-  collaborations Collaborator[]
-  clients       Client[]       @relation("UserClients")
-  createdAt     DateTime       @default(now())
+  id                Int       @id @default(autoincrement())
+  username          String    @unique
+  password          String
+  email             String    @unique
+  role              Role      @relation(fields: [roleId], references: [id])
+  roleId            Int
+  resetToken        String?   // Token for password setting/reset
+  resetTokenExpiry  DateTime? // Expiry for the token
+  experiences       Experience[]   @relation("UserExperiences")
+  rewards           UserReward[]
+  nfts              NFT[]
+  collaborations    Collaborator[]
+  clients           Client[]  @relation("UserClients")
+  createdAt         DateTime  @default(now())
 }
+
 
 model Role {
   id    Int    @id @default(autoincrement())
@@ -68,8 +71,7 @@ model UserReward {
 
 model Client {
   id            Int            @id @default(autoincrement())
-  name          String
-  email         String         @unique
+  name          String         @unique
   owner         User           @relation("UserClients", fields: [ownerId], references: [id])
   ownerId       Int
   plan          String
@@ -81,9 +83,8 @@ model Collaborator {
   id        Int     @id @default(autoincrement())
   user      User    @relation(fields: [userId], references: [id])
   userId    Int  
-  email     String  @unique
   client    Client  @relation(fields: [clientId], references: [id])
   clientId  Int
-  role      String  // Role of the collaborator within the client organization
+  role      String
   createdAt DateTime @default(now())
 }

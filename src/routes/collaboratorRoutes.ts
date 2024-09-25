@@ -1,9 +1,22 @@
 // src/routes/collaboratorRoutes.ts
 
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import crypto from 'crypto'; // For generating secure tokens
+import { addHours } from '../utils/dateHelpers'; // Import the global helper function
 import prisma from '../utils/prisma';
+import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 
+/**
+ * @notice Defines routes related to collaborator management
+ * @dev Handles collaborator creation, fetching all collaborators, and token generation for new users.
+ */
 export async function collaboratorRoutes(server: FastifyInstance) {
+  /**
+   * @notice Creates a new collaborator and user, generates a token for setting a password
+   * @dev Checks if the user exists, generates a token for password setup, and links the user as a collaborator to a client.
+   * @param request The Fastify request object containing the body with email, clientId, and role
+   * @param reply The Fastify reply object to send back the response
+   * @return The newly created collaborator or an error message if the collaborator already exists
+   */
   server.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
     const { email, clientId, role } = request.body as {
       email: string;
@@ -11,40 +24,50 @@ export async function collaboratorRoutes(server: FastifyInstance) {
       role: string;
     };
 
-    // Check if the collaborator already exists
-    const existingCollaborator = await prisma.collaborator.findUnique({
-      where: { email },
-    });
-
-    if (existingCollaborator) {
-      return reply.status(400).send({ error: 'Collaborator already exists' });
-    }
-
     // Check if the user exists
     let user = await prisma.user.findUnique({
       where: { email },
     });
 
     if (!user) {
-      // Create a new user if not exists
+      // Generate a secure token for password setup
+      const token = crypto.randomBytes(32).toString('hex');
+      const tokenExpiry = addHours(1); // Token expires in 1 hour
+
+      // Create a new user with resetToken and resetTokenExpiry
       user = await prisma.user.create({
         data: {
-          username: email, // Or generate a username based on your logic
+          username: email, // Use email as the username
           email,
-          password: 'temporaryPassword', // Handle this securely
+          password: 'temporaryPassword', // Temporary password, handle securely later
+          resetToken: token,
+          resetTokenExpiry: tokenExpiry,
           role: {
-            connect: { name: 'Collaborator' }, // Ensure this role exists
+            connect: { name: 'Collaborator' }, // Assign Collaborator role
           },
         },
       });
 
-      // TODO: Send an invitation email to the collaborator to set their password
+      // TODO: Send an invitation email to the collaborator to set their password using the token
     }
 
-    // Create the collaborator
+    // Check if the user is already a collaborator for the specified client
+    const existingCollaborator = await prisma.collaborator.findFirst({
+      where: {
+        userId: user.id,
+        clientId,
+      },
+    });
+
+    if (existingCollaborator) {
+      return reply
+        .status(400)
+        .send({ error: 'Collaborator already exists for this client' });
+    }
+
+    // Create the collaborator for the specified client
     const collaborator = await prisma.collaborator.create({
       data: {
-        email,
         role,
         client: {
           connect: { id: clientId },
@@ -58,7 +81,13 @@ export async function collaboratorRoutes(server: FastifyInstance) {
     reply.send(collaborator);
   });
 
-  // GET all collaborators
+  /**
+   * @notice Fetches all collaborators with related user and client details
+   * @dev Fetches all records from the Collaborator model with included relations to User and Client
+   * @param request The Fastify request object (unused in this route)
+   * @param reply The Fastify reply object to send back the list of collaborators
+   * @return A list of all collaborators along with associated user and client information
+   */
   server.get('/', async (_request: FastifyRequest, reply: FastifyReply) => {
     const collaborators = await prisma.collaborator.findMany({
       include: {
@@ -68,6 +97,4 @@ export async function collaboratorRoutes(server: FastifyInstance) {
     });
     reply.send(collaborators);
   });
-
-  // Add other CRUD operations as needed
 }
