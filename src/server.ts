@@ -7,7 +7,12 @@ import { jwtPlugin } from './plugins/jwtPlugin';
 import { prismaPlugin } from './plugins/prismaPlugin.';
 import { authRoutes } from './routes/authRoutes';
 import { experienceRoutes } from './routes/experienceRoutes';
+import { collaboratorRoutes } from './routes/collaboratorRoutes';
 import { nftRoutes } from './routes/nftRoutes';
+import dotenvFlow from 'dotenv-flow'; // Import dotenv-flow to load .env files
+
+// Load environment variables from .env files
+dotenvFlow.config();
 
 const server = Fastify({ logger: true });
 
@@ -20,6 +25,7 @@ server.register(authPlugin);
 // Register routes
 server.register(authRoutes, { prefix: '/auth' });
 server.register(experienceRoutes, { prefix: '/experiences' });
+server.register(collaboratorRoutes, { prefix: '/collaborators' });
 server.register(nftRoutes, { prefix: '/nfts' });
 
 // Start the server

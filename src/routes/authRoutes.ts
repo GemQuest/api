@@ -11,6 +11,84 @@ import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
  * @dev Handles setting passwords with tokens and requesting password resets
  */
 export async function authRoutes(server: FastifyInstance) {
+  server.post(
+    '/register',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { email, password, username } = request.body as {
+        email: string;
+        password: string;
+        username: string;
+      };
+
+      // Check if the user already exists
+      const existingUser = await prisma.user.findUnique({
+        where: { email },
+      });
+
+      if (existingUser) {
+        return reply.status(400).send({ error: 'User already exists' });
+      }
+
+      // Hash the user's password
+      const hashedPassword = await bcrypt.hash(password, 10);
+
+      // Create the user with default role (e.g., 'Collaborator')
+      const newUser = await prisma.user.create({
+        data: {
+          email,
+          username,
+          password: hashedPassword,
+          role: {
+            connect: { name: 'Collaborator' }, // Assign default role, you can change this
+          },
+        },
+      });
+
+      reply
+        .status(201)
+        .send({ message: 'User registered successfully', user: newUser });
+    },
+  );
+
+  server.post(
+    '/login',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { email, password } = request.body as {
+        email: string;
+        password: string;
+      };
+
+      // Fetch the user and their role
+      const user = await prisma.user.findUnique({
+        where: { email },
+        include: {
+          role: true, // Include the role relation to get roleId and roleName
+        },
+      });
+
+      if (!user) {
+        return reply.status(401).send({ error: 'Invalid email or password' });
+      }
+
+      const isPasswordValid = await bcrypt.compare(password, user.password);
+
+      if (!isPasswordValid) {
+        return reply.status(401).send({ error: 'Invalid email or password' });
+      }
+
+      // Generate the JWT, including both roleId and roleName
+      const token = server.jwt.sign({
+        userId: user.id,
+        username: user.username,
+        roleId: user.roleId, // roleId for internal use
+        roleName: user.role.name, // roleName for readability
+      });
+
+      // Return the token to the user
+      reply.send({ token });
+    },
+  );
+
   /**
    * @notice Sets a new password for a user using a reset token
    * @dev Validates the reset token and sets the new password, clearing the resetToken and resetTokenExpiry fields

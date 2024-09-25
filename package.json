@@ -28,14 +28,14 @@
   },
   "scripts": {
     "build": "tsc",
-    "dev": "NODE_ENV=development ts-node src/server.ts",
+    "dev": "dotenv -e .env.development ts-node src/server.ts",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'",
     "generate": "dotenv -e .env.development -- npx prisma generate",
     "lint": "eslint 'src/**/*.{js,ts}'",
     "lint:fix": "eslint 'src/**/*.{js,ts}' --fix",
     "migrate:dev": "dotenv -e .env.development -- npx prisma migrate dev",
     "migrate:prod": "dotenv -e .env.production -- npx prisma migrate deploy",
-    "start": "NODE_ENV=production node dist/server.js",
+    "start": "dotenv -e .env.production node dist/server.js",
     "type-check": "tsc --noEmit",
     "seed": "dotenv -e .env.development -- ts-node prisma/seed.ts"
   }
