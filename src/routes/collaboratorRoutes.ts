@@ -1,100 +1,146 @@
 // src/routes/collaboratorRoutes.ts
 
-import crypto from 'crypto'; // For generating secure tokens
-import { addHours } from '../utils/dateHelpers'; // Import the global helper function
-import prisma from '../utils/prisma';
-import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
+import { FastifyInstance } from 'fastify';
+import crypto from 'crypto';
+import { addHours } from '../utils/dateHelpers';
+import { sendEmail } from '../utils/emailService';
 
-/**
- * @notice Defines routes related to collaborator management
- * @dev Handles collaborator creation, fetching all collaborators, and token generation for new users.
- */
 export async function collaboratorRoutes(server: FastifyInstance) {
-  /**
-   * @notice Creates a new collaborator and user, generates a token for setting a password
-   * @dev Checks if the user exists, generates a token for password setup, and links the user as a collaborator to a client.
-   * @param request The Fastify request object containing the body with email, clientId, and role
-   * @param reply The Fastify reply object to send back the response
-   * @return The newly created collaborator or an error message if the collaborator already exists
-   */
-  server.post('/', async (request: FastifyRequest, reply: FastifyReply) => {
-    const { email, clientId, role } = request.body as {
-      email: string;
-      clientId: number;
-      role: string;
-    };
+  // Create a new collaborator and send an invitation email
+  server.post(
+    '/',
+    {
+      preValidation: [
+        server.authenticate,
+        server.authorize({
+          roles: ['Client Administrator', 'Super Administrator'],
+        }),
+      ],
+    },
+    async (request, reply) => {
+      const {
+        email,
+        clientId,
+        role: roleName,
+      } = request.body as {
+        email: string;
+        clientId: number;
+        role: string;
+      };
 
-    // Check if the user exists
-    let user = await prisma.user.findUnique({
-      where: { email },
-    });
+      // Check if the user already exists
+      let user = await server.prisma.user.findUnique({
+        where: { email },
+      });
 
-    if (!user) {
-      // Generate a secure token for password setup
-      const token = crypto.randomBytes(32).toString('hex');
-      const tokenExpiry = addHours(1); // Token expires in 1 hour
+      if (!user) {
+        // If user doesn't exist, create a new user with a temporary password and reset token
+        const token = crypto.randomBytes(32).toString('hex');
+        const tokenExpiry = addHours(24);
 
-      // Create a new user with resetToken and resetTokenExpiry
-      user = await prisma.user.create({
-        data: {
-          username: email, // Use email as the username
-          email,
-          password: 'temporaryPassword', // Temporary password, handle securely later
-          resetToken: token,
-          resetTokenExpiry: tokenExpiry,
-          role: {
-            connect: { name: 'Collaborator' }, // Assign Collaborator role
+        user = await server.prisma.user.create({
+          data: {
+            username: email,
+            email,
+            password: 'temporaryPassword',
+            resetToken: token,
+            resetTokenExpiry: tokenExpiry,
           },
+        });
+
+        // Send invitation email with reset token
+        const resetLink = `${process.env.PROJECT_URL}/auth/set-password?token=${token}`;
+        try {
+          await sendEmail(
+            email,
+            'You have been invited to GemQuest',
+            'invitation', // Email template
+            {
+              resetLink,
+            },
+          );
+        } catch (error) {
+          console.error(`Failed to send invitation email to ${email}:`, error);
+          // Handle the error as needed
+        }
+      }
+
+      // Check if the user already has a role for the client
+      const existingUserRole = await server.prisma.userRole.findFirst({
+        where: {
+          userId: user.id,
+          clientId,
         },
       });
 
-      // TODO: Send an invitation email to the collaborator to set their password using the token
-    }
+      if (existingUserRole) {
+        return reply
+          .status(400)
+          .send({ error: 'User already has a role for this client' });
+      }
 
-    // Check if the user is already a collaborator for the specified client
-    const existingCollaborator = await prisma.collaborator.findFirst({
-      where: {
+      // Assign the role to the user for the client
+      const role = await server.prisma.role.findUnique({
+        where: { name: roleName },
+      });
+      if (!role) {
+        return reply.status(400).send({ error: 'Invalid role name' });
+      }
+
+      const userRole = await server.prisma.userRole.create({
+        data: {
+          userId: user.id,
+          roleId: role.id,
+          clientId,
+        },
+      });
+
+      reply.send({
+        id: userRole.id,
+        role: role.name,
         userId: user.id,
         clientId,
-      },
-    });
+      });
+    },
+  );
 
-    if (existingCollaborator) {
-      return reply
-        .status(400)
-        .send({ error: 'Collaborator already exists for this client' });
-    }
-
-    // Create the collaborator for the specified client
-    const collaborator = await prisma.collaborator.create({
-      data: {
-        role,
-        client: {
-          connect: { id: clientId },
+  // Fetch all collaborators with user and client details
+  server.get(
+    '/',
+    {
+      preValidation: [
+        server.authenticate,
+        server.authorize({
+          roles: ['Client Administrator', 'Super Administrator'],
+        }),
+      ],
+    },
+    async (request, reply) => {
+      const userRoles = await server.prisma.userRole.findMany({
+        include: {
+          user: true,
+          client: true,
+          role: true,
         },
+      });
+
+      const collaborators = userRoles.map((ur) => ({
+        id: ur.id,
+        role: ur.role.name,
         user: {
-          connect: { id: user.id },
+          id: ur.user.id,
+          email: ur.user.email,
+          username: ur.user.username,
         },
-      },
-    });
+        client: ur.client
+          ? {
+              id: ur.client.id,
+              name: ur.client.name,
+            }
+          : null,
+      }));
 
-    reply.send(collaborator);
-  });
-
-  /**
-   * @notice Fetches all collaborators with related user and client details
-   * @dev Fetches all records from the Collaborator model with included relations to User and Client
-   * @param request The Fastify request object (unused in this route)
-   * @param reply The Fastify reply object to send back the list of collaborators
-   * @return A list of all collaborators along with associated user and client information
-   */
-  server.get('/', async (_request: FastifyRequest, reply: FastifyReply) => {
-    const collaborators = await prisma.collaborator.findMany({
-      include: {
-        user: true,
-        client: true,
-      },
-    });
-    reply.send(collaborators);
-  });
+      reply.send(collaborators);
+    },
+  );
 }

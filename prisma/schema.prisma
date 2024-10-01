@@ -8,30 +8,91 @@ generator client {
 }
 
 model User {
-  id                       Int       @id @default(autoincrement())
-  username                 String    @unique
+  id                       Int           @id @default(autoincrement())
+  username                 String        @unique
   password                 String
-  email                    String    @unique
-  emailConfirmed           Boolean   @default(false)
-  confirmationToken        String?   // Token for email confirmation
-  confirmationTokenExpiry  DateTime? // Expiry for the confirmation token
-  resetToken               String?   // Token for password setting/reset
-  resetTokenExpiry         DateTime? // Expiry for the token
-  role                     Role      @relation(fields: [roleId], references: [id])
-  roleId                   Int
-  experiences              Experience[]   @relation("UserExperiences")
+  email                    String        @unique
+  emailConfirmed           Boolean       @default(false)
+  confirmationToken        String?       // Token for email confirmation
+  confirmationTokenExpiry  DateTime?     // Expiry for the confirmation token
+  resetToken               String?       // Token for password setting/reset
+  resetTokenExpiry         DateTime?     // Expiry for the token
+  userRoles                UserRole[]    // Association with roles (global and client-specific)
+  userGroups               UserGroup[]   // Association with groups
+  experiences              Experience[]  @relation("UserExperiences")
   rewards                  UserReward[]
   nfts                     NFT[]
-  collaborations           Collaborator[]
-  clients                  Client[]  @relation("UserClients")
-  createdAt                DateTime  @default(now())
+  clients                  Client[]      @relation("UserClients")
+  createdAt                DateTime      @default(now())
 }
 
-
 model Role {
-  id    Int    @id @default(autoincrement())
-  name  String @unique
-  users User[]
+  id          Int         @id @default(autoincrement())
+  name        String      @unique
+  description String?
+  userRoles   UserRole[]
+  groupRoles  GroupRole[]
+}
+
+model UserRole {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  roleId    Int
+  client    Client?  @relation(fields: [clientId], references: [id])
+  clientId  Int?
+  createdAt DateTime @default(now())
+
+  @@unique([userId, roleId, clientId])
+}
+
+model Group {
+  id         Int         @id @default(autoincrement())
+  name       String      @unique
+  description String?
+  users      UserGroup[]
+  groupRoles GroupRole[]
+  createdAt  DateTime    @default(now())
+}
+
+model UserGroup {
+  id        Int      @id @default(autoincrement())
+  user      User     @relation(fields: [userId], references: [id])
+  userId    Int
+  group     Group    @relation(fields: [groupId], references: [id])
+  groupId   Int
+  createdAt DateTime @default(now())
+
+  @@unique([userId, groupId])
+}
+
+model GroupRole {
+  id        Int      @id @default(autoincrement())
+  group     Group    @relation(fields: [groupId], references: [id])
+  groupId   Int
+  role      Role     @relation(fields: [roleId], references: [id])
+  roleId    Int
+  client    Client?  @relation(fields: [clientId], references: [id])
+  clientId  Int?
+  createdAt DateTime @default(now())
+
+  @@unique([groupId, roleId, clientId])
+}
+
+model Client {
+  id            Int          @id @default(autoincrement())
+  name          String       @unique
+  owner         User?        @relation("UserClients", fields: [ownerId], references: [id])
+  ownerId       Int?
+  plan          String
+  parentId      Int?
+  parent        Client?      @relation("SubClients", fields: [parentId], references: [id])
+  subClients    Client[]     @relation("SubClients")
+  userRoles     UserRole[]
+  groupRoles    GroupRole[]
+  experiences   Experience[]
+  createdAt     DateTime     @default(now())
 }
 
 model Experience {
@@ -40,6 +101,8 @@ model Experience {
   description String?
   createdBy   User         @relation("UserExperiences", fields: [createdById], references: [id])
   createdById Int
+  client      Client       @relation(fields: [clientId], references: [id])
+  clientId    Int
   rewards     Reward[]
   createdAt   DateTime     @default(now())
 }
@@ -70,24 +133,4 @@ model UserReward {
   reward    Reward    @relation(fields: [rewardId], references: [id])
   rewardId  Int
   createdAt DateTime  @default(now())
-}
-
-model Client {
-  id            Int            @id @default(autoincrement())
-  name          String         @unique
-  owner         User           @relation("UserClients", fields: [ownerId], references: [id])
-  ownerId       Int
-  plan          String
-  collaborators Collaborator[]
-  createdAt     DateTime       @default(now())
-}
-
-model Collaborator {
-  id        Int     @id @default(autoincrement())
-  user      User    @relation(fields: [userId], references: [id])
-  userId    Int  
-  client    Client  @relation(fields: [clientId], references: [id])
-  clientId  Int
-  role      String
-  createdAt DateTime @default(now())
 }
