@@ -3,11 +3,9 @@
 import fp from 'fastify-plugin';
 import { FastifyInstance, FastifyReply, FastifyRequest } from 'fastify';
 import { PermissionOptions } from '../config/permission';
-import '@fastify/jwt';
-import 'fastify';
 import '@fastify/jwt'; // Import for module augmentation
 
-export const authPlugin = fp(async (server: FastifyInstance) => {
+export default fp(async (server: FastifyInstance) => {
   // Authentication decorator to verify JWT tokens
   server.decorate(
     'authenticate',

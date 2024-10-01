@@ -6,7 +6,6 @@
     "bcryptjs": "^2.4.3",
     "dotenv": "^16.4.5",
     "fastify": "^5.0.0",
-    "fastify-jwt": "^4.2.0",
     "fastify-plugin": "^5.0.0",
     "handlebars": "^4.7.8",
     "nodemailer": "^6.9.15",
@@ -22,6 +21,7 @@
     "@types/node": "^22.5.5",
     "@types/nodemailer": "^6.4.16",
     "@types/supertest": "^6.0.2",
+    "cpx": "^1.5.0",
     "dotenv-cli": "^7.4.2",
     "dotenv-flow": "^4.1.0",
     "eslint": "^9.10.0",
@@ -36,7 +36,7 @@
     "typescript": "^5.6.2"
   },
   "scripts": {
-    "build": "tsc",
+    "build": "tsc && cpx \"src/templates/**/*.hbs\" dist/templates/",
     "dev": "dotenv -e .env.development ts-node src/server.ts",
     "format": "prettier --write 'src/**/*.{js,ts,json,md}'",
     "generate": "dotenv -e .env.development -- npx prisma generate",

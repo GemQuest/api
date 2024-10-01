@@ -2,12 +2,11 @@
 
 import Fastify from 'fastify';
 import fastifyFormbody from '@fastify/formbody';
-import { authPlugin } from 'plugins/authPlugin';
+import authPlugin from './plugins/authPlugin';
 import jwtPlugin from './plugins/jwtPlugin';
-import { prismaPlugin } from 'plugins/prismaPlugin.';
+import prismaPlugin from './plugins/prismaPlugin';
 import { authRoutes } from './routes/authRoutes';
 import { experienceRoutes } from './routes/experienceRoutes';
-import { collaboratorRoutes } from './routes/collaboratorRoutes';
 import { nftRoutes } from './routes/nftRoutes';
 import { clientRoutes } from './routes/clientRoutes'; // Import the clientRoutes
 import dotenvFlow from 'dotenv-flow'; // Import dotenv-flow to load .env files
@@ -26,7 +25,6 @@ server.register(authPlugin);
 // Register routes
 server.register(authRoutes, { prefix: '/auth' });
 server.register(experienceRoutes, { prefix: '/experiences' });
-server.register(collaboratorRoutes, { prefix: '/collaborators' });
 server.register(nftRoutes, { prefix: '/nfts' });
 server.register(clientRoutes, { prefix: '/clients' }); // Register the clientRoutes
 
