@@ -11,7 +11,7 @@ import '@fastify/jwt'; // Import for module augmentation
 
 export async function authRoutes(server: FastifyInstance) {
   /**
-   * @notice Registers a new user and sends a confirmation email
+   * @notice Registers a new user and sends a confirmation email.
    */
   server.post(
     '/register',
@@ -22,7 +22,6 @@ export async function authRoutes(server: FastifyInstance) {
         username: string;
       };
 
-      // Check if the user already exists
       const existingUser = await prisma.user.findUnique({
         where: { email },
       });
@@ -31,14 +30,12 @@ export async function authRoutes(server: FastifyInstance) {
         return reply.status(400).send({ error: 'User already exists' });
       }
 
-      // Hash the user's password
       const hashedPassword = await bcrypt.hash(password, 10);
 
-      // Generate a confirmation token and its expiry
+      // Generate a random confirmation token
       const confirmationToken = crypto.randomBytes(32).toString('hex');
       const confirmationTokenExpiry = addHours(24); // Token expires in 24 hours
 
-      // Create the user without assigning a role directly
       const newUser = await prisma.user.create({
         data: {
           email,
@@ -50,7 +47,6 @@ export async function authRoutes(server: FastifyInstance) {
         },
       });
 
-      // Assign the default role (e.g., 'Collaborator') to the user
       const defaultRole = await prisma.role.findUnique({
         where: { name: 'Collaborator' },
       });
@@ -60,7 +56,7 @@ export async function authRoutes(server: FastifyInstance) {
           data: {
             userId: newUser.id,
             roleId: defaultRole.id,
-            clientId: null, // Assuming global role
+            clientId: null, // Global role
           },
         });
       } else {
@@ -68,19 +64,14 @@ export async function authRoutes(server: FastifyInstance) {
         return reply.status(500).send({ error: 'Server configuration error' });
       }
 
-      // Generate the confirmation link
       const confirmationLink = `${process.env.PROJECT_URL}/auth/confirm-email?token=${confirmationToken}`;
 
-      // Send the confirmation email
       try {
         await sendEmail(
           email,
           'Welcome to GemQuest - Please Confirm Your Email',
           'welcome', // Template name without .hbs extension
-          {
-            username,
-            confirmationLink,
-          },
+          { username, confirmationLink },
         );
       } catch (error) {
         console.error(`Failed to send confirmation email to ${email}:`, error);
@@ -102,6 +93,9 @@ export async function authRoutes(server: FastifyInstance) {
     },
   );
 
+  /**
+   * @notice Confirms a user's email using a token.
+   */
   server.get(
     '/confirm-email',
     async (request: FastifyRequest, reply: FastifyReply) => {
@@ -112,19 +106,34 @@ export async function authRoutes(server: FastifyInstance) {
       }
 
       try {
-        // Verify token
-        const decoded = server.jwt.verify<{ userId: number }>(token);
+        // Find the user by the confirmation token
+        const user = await prisma.user.findFirst({
+          where: {
+            confirmationToken: token,
+            confirmationTokenExpiry: {
+              gte: new Date(), // Ensure token is still valid
+            },
+          },
+        });
 
-        // Update user's emailConfirmed status
-        const user = await prisma.user.update({
-          where: { id: decoded.userId },
-          data: { emailConfirmed: true },
+        if (!user) {
+          return reply.status(400).send({ error: 'Invalid or expired token.' });
+        }
+
+        // Confirm the user's email
+        await prisma.user.update({
+          where: { id: user.id },
+          data: {
+            emailConfirmed: true,
+            confirmationToken: null, // Clear the token after confirmation
+            confirmationTokenExpiry: null,
+          },
         });
 
         reply.send({ message: 'Email confirmed successfully.' });
       } catch (error) {
         console.error('Error during email confirmation:', error);
-        reply.status(400).send({ error: 'Invalid or expired token.' });
+        reply.status(500).send({ error: 'An unknown error occurred.' });
       }
     },
   );

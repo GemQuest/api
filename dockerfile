@@ -1,5 +1,5 @@
 # Step 1: Build the application
-FROM node:18 AS builder
+FROM node:20 AS builder
 
 WORKDIR /app
 
@@ -19,7 +19,7 @@ COPY ./.env.${NODE_ENV} ./.env
 RUN npm run build
 
 # Step 2: Create a lightweight production image
-FROM node:18-slim
+FROM node:20-slim
 
 WORKDIR /app
 
