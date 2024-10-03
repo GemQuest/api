@@ -102,6 +102,33 @@ export async function authRoutes(server: FastifyInstance) {
     },
   );
 
+  server.get(
+    '/confirm-email',
+    async (request: FastifyRequest, reply: FastifyReply) => {
+      const { token } = request.query as { token: string };
+
+      if (!token) {
+        return reply.status(400).send({ error: 'Token is required.' });
+      }
+
+      try {
+        // Verify token
+        const decoded = server.jwt.verify<{ userId: number }>(token);
+
+        // Update user's emailConfirmed status
+        const user = await prisma.user.update({
+          where: { id: decoded.userId },
+          data: { emailConfirmed: true },
+        });
+
+        reply.send({ message: 'Email confirmed successfully.' });
+      } catch (error) {
+        console.error('Error during email confirmation:', error);
+        reply.status(400).send({ error: 'Invalid or expired token.' });
+      }
+    },
+  );
+
   /**
    * @notice Logs in a user and returns a JWT token
    */
