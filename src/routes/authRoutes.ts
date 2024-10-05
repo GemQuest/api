@@ -181,5 +181,53 @@ export async function authRoutes(server: FastifyInstance) {
     },
   );
 
-  // ... (other routes remain unchanged)
+  /**
+   * @notice Retrieve user information by email
+   * @param request Fastify request object with the email in query parameters
+   * @param reply Fastify reply object to send back the user information
+   */
+  server.get(
+    '/user-by-email',
+    async (
+      request: FastifyRequest<{ Querystring: { email: string } }>,
+      reply: FastifyReply,
+    ) => {
+      const { email } = request.query;
+
+      if (!email) {
+        return reply.status(400).send({ error: 'Email is required.' });
+      }
+
+      try {
+        // Fetch the user by email
+        const user = await prisma.user.findUnique({
+          where: { email },
+          include: {
+            userRoles: {
+              include: { role: true },
+            },
+          },
+        });
+
+        if (!user) {
+          return reply.status(404).send({ error: 'User not found.' });
+        }
+
+        // Send the user information
+        reply.send({
+          id: user.id,
+          username: user.username,
+          email: user.email,
+          roles: user.userRoles.map((userRole) => userRole.role.name),
+          emailConfirmed: user.emailConfirmed,
+          createdAt: user.createdAt,
+        });
+      } catch (error) {
+        console.error('Error fetching user by email:', error);
+        reply.status(500).send({
+          error: 'An error occurred while retrieving user information.',
+        });
+      }
+    },
+  );
 }
