@@ -30,7 +30,7 @@ COPY --from=builder /app ./
 RUN npm install --production
 
 # Expose the application's port
-EXPOSE 3000
+EXPOSE 3030
 
 # Set the default environment to production
 ENV NODE_ENV=production
